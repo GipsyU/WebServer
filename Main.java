@@ -24,25 +24,42 @@ class ServerThread extends Thread {
     private BufferedReader client_input;
     private PrintWriter client_output;
     private String method,path;
+    private int content_length;
     static final String Root="../HTML";
     public ServerThread(Socket client)throws IOException{
         client_input=new BufferedReader(new InputStreamReader(client.getInputStream()));
         client_output = new PrintWriter(client.getOutputStream());
-        for(String s=client_input.readLine();!s.isEmpty();s=client_input.readLine()){
+        content_length=0;
+        for(String s=client_input.readLine();s!=null&&s.isEmpty()==false;s=client_input.readLine()){
             if(s.startsWith("GET")){
                 System.out.println(s);
                 method="GET";
                 path=s.substring(4,s.indexOf("HTTP")-1);
-            }else if(s.startsWith("POST")){
+            }
+            if(s.startsWith("POST")){
                 method="POST";
+                System.out.println(s);
                 path=s.substring(5,s.indexOf("HTTP")-1);
+            }
+            if(s.startsWith("Content-Length:")){
+                content_length = Integer.parseInt(s.substring("Content-Length:".length()+1));
             }
         }
     }
     public void run(){
         try{
-            if(path.equals("/"))transfile(Root+"/main.html");
-            else transfile(Root+path);
+            if(method=="GET"){
+                if(path.equals("/"))transfile(Root+"/main.html");
+                else transfile(Root+path);
+            }else{
+                for(int i=0;i<content_length;++i){
+                    System.out.print((char)client_input.read());
+                }
+                client_output.println("HTTP/1.1 200 OK");
+                client_output.println();
+                client_output.println("success");
+                client_output.flush();
+            }
             client_input.close();
             client_output.close();
         }catch(IOException E){
@@ -51,9 +68,9 @@ class ServerThread extends Thread {
     }
     private void transfile(String filepath)throws IOException{
         if(new File(filepath).exists()){
-            BufferedReader file=new BufferedReader(new FileReader(filepath));
             client_output.println("HTTP/1.1 200 OK");
             client_output.println();
+            BufferedReader file=new BufferedReader(new FileReader(filepath));
             for(String s=file.readLine();s!=null;s=file.readLine()){
                 client_output.println(s);
             }
